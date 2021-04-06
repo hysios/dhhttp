@@ -2,17 +2,18 @@ package dhhttp
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"path"
 	"reflect"
-	"strconv"
 	"strings"
+
+	"dev.cspdls.com/pkg/log"
 
 	"github.com/hysios/digest"
 	"github.com/pkg/errors"
@@ -131,19 +132,13 @@ func (client *Client) extractCallback(args []interface{}) ([]string, EventCallba
 
 func (client *Client) SubscribeFunc(channel int, eventCode []string, cb EventCallback) error {
 	var (
-		// uri       = client.api("cgi-bin/snapManager.cgi?action=attachFileProc&Flags[0]=Event")
-		uri       = client.api("/cgi-bin/snapManager.cgi?action=attachFileProc&Flags[0]=Event&Events=[TrafficParking,VideoMotion]&channel=1&heartbeat=30")
+		uri       = client.api("/cgi-bin/snapManager.cgi")
 		method    = "GET"
 		heartbeat = 30
 	)
 
-	if len(eventCode) > 0 {
-		uri.Query().Set("Events", strings.Join(eventCode, ","))
-	}
-
-	uri.Query().Set("channel", strconv.Itoa(channel))
-	uri.Query().Set("heartbeat", strconv.Itoa(heartbeat))
-	log.Printf("uri %s", &uri)
+	uri.RawQuery = url.PathEscape(fmt.Sprintf("action=attachFileProc&Flags[0]=Event&Events=[%s]&channel=%d&heartbeat=%d", strings.Join(eventCode, ","), channel, heartbeat))
+	log.Infof("uri %s", uri.String())
 	res, err := client.newRequest(method, uri, nil)
 	if err != nil {
 		return err
@@ -184,7 +179,7 @@ func (client *Client) decodeStream(resp *http.Response, count int, _cb interface
 	} else {
 		return errors.New("callback function args less count")
 	}
-	log.Printf("decode Type %s", decodeType.Name())
+	log.Infof("decode Type %s", decodeType.Name())
 
 	mediaType, params, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 	if err != nil {
@@ -212,7 +207,7 @@ func (client *Client) decodeStream(resp *http.Response, count int, _cb interface
 			if client.test && p == nil {
 				return nil
 			}
-			log.Printf("context-type %s", p.Header.Get("Content-Type"))
+			log.Infof("context-type %s", p.Header.Get("Content-Type"))
 			switch p.Header.Get("Content-Type") {
 			case "text/plain":
 				buf, err := ioutil.ReadAll(p)
@@ -222,37 +217,36 @@ func (client *Client) decodeStream(resp *http.Response, count int, _cb interface
 				}
 
 				if bytes.HasPrefix(buf, []byte("Heartbeat")) {
-					log.Println("heartbeat")
+					log.Debug("heartbeat")
 					continue
 				}
-
+				log.Debugf("buf %s", buf)
 				val := reflect.New(decodeType)
-				log.Printf("frame\n%s", buf)
 				if err := client.decodeBytes(buf, val.Interface()); err != nil {
-					log.Printf("decode Bytes error %s", err)
+					log.Errorf("decode Bytes error %s", err)
 					continue
 					// return err
 				}
-				log.Printf("val %v", val.Interface())
+				log.Debugf("val %v", val.Interface())
 				i++
 				args = append(args, val.Elem())
 			case "image/jpeg":
 				buf, err := ioutil.ReadAll(p)
 				if err != nil {
-					log.Printf("read image  error %s", err)
+					log.Errorf("read image  error %s", err)
 					continue
 					// return err
 				}
-				log.Printf("read %d length image", len(buf))
+				log.Infof("read %d length image", len(buf))
 				i++
 				args = append(args, reflect.ValueOf(buf))
 				// events.Image = buf
 			default:
-				log.Printf("unknown Content-Type")
+				log.Infof("unknown Content-Type")
 			}
 
 			if i%count == 0 && len(args) >= count {
-				log.Println("call")
+				log.Debug("call")
 				cb.Call(args)
 				clear()
 			}

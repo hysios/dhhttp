@@ -184,5 +184,4 @@ Events[0].VehicleLength=0.000000
 	client.decodeStream(resp, 1, func(event Events) {
 		log.Printf("event %v", event)
 	})
-
 }

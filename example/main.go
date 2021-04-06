@@ -5,12 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
 
 	"dev.cspdls.com/pkg/dhhttp"
+	"dev.cspdls.com/pkg/log"
 	"github.com/kr/pretty"
 )
 
@@ -37,7 +37,7 @@ func main() {
 	}
 
 	client.AudioInput()
-	ch, err := client.Subscribe(1, "TrafficParking")
+	ch, err := client.Subscribe(1, "TrafficParking", "All")
 	if err != nil {
 		log.Fatalf("subscribe exit %v", err)
 	}
@@ -45,30 +45,29 @@ func main() {
 	os.MkdirAll(output, os.ModeDir|os.ModePerm)
 
 	for event := range ch {
-		var events dhhttp.EventInfo
 
 		if len(event.Events.Events) == 0 {
 			continue
 		}
-		events = event.Events.Events[0]
-		log.Printf("events % #v", pretty.Formatter(events))
+		var events dhhttp.EventInfo = event.Events.Events[0]
+
+		log.Infof("events % #v", pretty.Formatter(events))
 
 		t := time.Now()
-		log.Printf("eventType %s", events.TrafficCar.Event)
+		log.Infof("eventType %s", events.TrafficCar.Event)
 		switch events.TrafficCar.Event {
 		case "TrafficParking":
 			filename := filepath.Join(output, fmt.Sprintf("%d.json", t.UnixNano()))
 			buf, err := json.Marshal(events)
 			if err != nil {
-				log.Printf("marshal events error %s", err)
+				log.Infof("marshal events error %s", err)
 			}
-			log.Println(ioutil.WriteFile(filename, buf, os.ModePerm))
+			log.Info(ioutil.WriteFile(filename, buf, os.ModePerm))
 
 			if len(event.Image) > 0 {
 				imagename := filepath.Join(output, fmt.Sprintf("%d.jpeg", t.UnixNano()))
-				log.Println(ioutil.WriteFile(imagename, event.Image, os.ModePerm))
+				log.Info(ioutil.WriteFile(imagename, event.Image, os.ModePerm))
 			}
 		}
-		// log.Printf("event %#v", pretty.Formatter(event))
 	}
 }
