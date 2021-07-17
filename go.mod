@@ -8,7 +8,7 @@ require (
 	github.com/google/go-cmp v0.5.5 // indirect
 	github.com/googleapis/gax-go v1.0.3 // indirect
 	github.com/hysios/digest v0.0.0-20201030060155-1de5ed13f2fa
-	github.com/hysios/log v0.0.0-20210420091742-d54e2f0555dd // indirect
+	github.com/hysios/log v0.0.0-20210420091742-d54e2f0555dd
 	github.com/hysios/utils v0.0.10
 	github.com/kr/pretty v0.2.1
 	github.com/pkg/errors v0.9.1
