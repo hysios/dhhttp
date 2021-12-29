@@ -265,3 +265,47 @@ func (client *Client) decodeStream(resp *http.Response, count int, _cb interface
 
 	return nil
 }
+
+func (client *Client) Reboot() error {
+	var (
+		uri    = client.api("/cgi-bin/magicBox.cgi")
+		method = "GET"
+		reply  AudioInputReply
+	)
+
+	uri.RawQuery = url.PathEscape(fmt.Sprintf("action=reboot"))
+	log.Infof("uri %s", uri.String())
+	res, err := client.newRequest(method, uri, nil)
+	if err != nil {
+		return err
+	}
+
+	defer res.Body.Close()
+	if err = client.decodeResp(res, &reply); err != nil {
+		return err
+	}
+
+	return err
+}
+
+func (client *Client) Shutdown() error {
+	var (
+		uri    = client.api("/cgi-bin/magicBox.cgi")
+		method = "GET"
+		reply  AudioInputReply
+	)
+
+	uri.RawQuery = url.PathEscape(fmt.Sprintf("action=shutdown"))
+	log.Infof("uri %s", uri.String())
+	res, err := client.newRequest(method, uri, nil)
+	if err != nil {
+		return err
+	}
+
+	defer res.Body.Close()
+	if err = client.decodeResp(res, &reply); err != nil {
+		return err
+	}
+
+	return err
+}

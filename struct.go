@@ -140,3 +140,7 @@ type Extra struct {
 type CommInfo struct {
 	Country string
 }
+
+type TimeReply struct {
+	Result string
+}
