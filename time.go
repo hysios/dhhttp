@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"time"
 
-	"dev.cspdls.com/pkg/log"
+	"github.com/hysios/log"
 )
 
 func (client *Client) CurrentTime() (time.Time, error) {
