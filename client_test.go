@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"os"
 	"testing"
 
 	"github.com/kr/pretty"
@@ -32,10 +33,13 @@ func TestClient_AudioInput(t *testing.T) {
 
 func TestClient_decodeStream(t *testing.T) {
 	var (
+		host = os.Getenv("DHHTTP_HOST")
+	)
+	var (
 		buf    bytes.Buffer
 		resp   = &http.Response{Body: ioutil.NopCloser(bufio.NewReader(&buf)), Header: make(http.Header)}
 		mw     = multipart.NewWriter(&buf)
-		client = Client{Addr: "192.168.1.108", test: true}
+		client = Client{Addr: host, test: true}
 	)
 
 	resp.Header.Set("Content-Type", "multipart/mixed; boundary="+mw.Boundary())
@@ -182,6 +186,66 @@ Events[0].VehicleLength=0.000000
 
 `)
 	client.decodeStream(resp, 1, func(event Events) {
-		log.Printf("event %v", event)
+		log.Printf("event % #v", pretty.Formatter(event))
 	})
+}
+
+func TestClient_GetPtzStatus(t *testing.T) {
+	var (
+		host = os.Getenv("DHHTTP_HOST")
+		user = os.Getenv("DHHTTP_USER")
+		pwd  = os.Getenv("DHHTTP_PASSWORD")
+	)
+	client, err := New(host, user, pwd)
+	if err != nil {
+		t.Fatalf("new client %s", err)
+	}
+
+	status, err := client.GetPtzStatus(1)
+	if err != nil {
+		t.Fatalf("get ptz status error %s", err)
+	}
+	t.Logf("status % #v", pretty.Formatter(status))
+	assert.NoError(t, err)
+	// assert.Equal(t, cap, "")
+}
+
+func TestClient_GetPresets(t *testing.T) {
+	var (
+		host = os.Getenv("DHHTTP_HOST")
+		user = os.Getenv("DHHTTP_USER")
+		pwd  = os.Getenv("DHHTTP_PASSWORD")
+	)
+	client, err := New(host, user, pwd)
+	if err != nil {
+		t.Fatalf("new client %s", err)
+	}
+
+	presets, err := client.GetPresets(1)
+	if err != nil {
+		t.Fatalf("get ptz presets error %s", err)
+	}
+	t.Logf("presets % #v", pretty.Formatter(presets))
+	assert.NoError(t, err)
+	// assert.Equal(t, cap, "")
+}
+
+func TestClient_GetMachineName(t *testing.T) {
+	var (
+		host = os.Getenv("DHHTTP_HOST")
+		user = os.Getenv("DHHTTP_USER")
+		pwd  = os.Getenv("DHHTTP_PASSWORD")
+	)
+	client, err := New(host, user, pwd)
+	if err != nil {
+		t.Fatalf("new client %s", err)
+	}
+
+	name, err := client.GetMachineName()
+	if err != nil {
+		t.Fatalf("get machine name error %s", err)
+	}
+	t.Logf("name %s", name)
+	assert.NoError(t, err)
+	// assert.Equal(t, cap, "")
 }

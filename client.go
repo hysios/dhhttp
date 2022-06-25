@@ -152,9 +152,41 @@ func (client *Client) SubscribeFunc(channel int, eventCode []string, cb EventCal
 	return err
 }
 
+func (client *Client) SubscribeAlarmFunc(eventCode []string, cb EventCallback) error {
+	var (
+		uri       = client.api("/cgi-bin/eventManager.cgi")
+		method    = "GET"
+		heartbeat = 30
+	)
+
+	uri.RawQuery = url.PathEscape(fmt.Sprintf("action=attach&codes=[%s]&keepalive=%d&heartbeat=%d", strings.Join(eventCode, ","), heartbeat, heartbeat))
+	log.Infof("uri %s", uri.String())
+	res, err := client.newRequest(method, uri, nil)
+	if err != nil {
+		return err
+	}
+
+	defer res.Body.Close()
+	if err = client.decodeStream(res, 2, cb); err != nil {
+		return err
+	}
+
+	return err
+}
+
 type Event struct {
 	Events Events
 	Image  []byte
+}
+
+func (client *Client) SubscribeAlarm(eventCode ...string) (chan Event, error) {
+	var ch = make(chan Event)
+
+	go client.SubscribeAlarmFunc(eventCode, func(events Events, buf []byte) {
+		ch <- Event{Events: events, Image: buf}
+	})
+
+	return ch, nil
 }
 
 func (client *Client) Subscribe(channel int, eventCode ...string) (chan Event, error) {
@@ -180,7 +212,7 @@ func (client *Client) decodeStream(resp *http.Response, count int, _cb interface
 		return errors.New("callback function args less count")
 	}
 	log.Infof("decode Type %s", decodeType.Name())
-
+	log.Debugf("header %v", resp.Header)
 	mediaType, params, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 	if err != nil {
 		return err
@@ -308,4 +340,70 @@ func (client *Client) Shutdown() error {
 	}
 
 	return err
+}
+
+func (client *Client) GetPtzStatus(channel int) (*Status, error) {
+	var (
+		uri    = client.api("/cgi-bin/ptz.cgi")
+		method = "GET"
+		reply  PtzReply
+	)
+
+	uri.RawQuery = url.PathEscape(fmt.Sprintf("action=getStatus&channel=%d", channel))
+	log.Infof("uri %s", uri.String())
+	res, err := client.newRequest(method, uri, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	defer res.Body.Close()
+	if err = client.decodeResp(res, &reply); err != nil {
+		return nil, err
+	}
+
+	return &reply.Status, nil
+}
+
+func (client *Client) GetPresets(channel int) ([]Preset, error) {
+	var (
+		uri    = client.api("/cgi-bin/ptz.cgi")
+		method = "GET"
+		reply  PresetReply
+	)
+
+	uri.RawQuery = url.PathEscape(fmt.Sprintf("action=getPresets&channel=%d", channel))
+	log.Infof("uri %s", uri.String())
+	res, err := client.newRequest(method, uri, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	defer res.Body.Close()
+	if err = client.decodeResp(res, &reply); err != nil {
+		return nil, err
+	}
+
+	return reply.Presets, nil
+}
+
+func (client *Client) GetMachineName() (string, error) {
+	var (
+		uri    = client.api("/cgi-bin/magicBox.cgi")
+		method = "GET"
+		reply  NameReply
+	)
+
+	uri.RawQuery = url.PathEscape(fmt.Sprintf("action=getMachineName"))
+	log.Infof("uri %s", uri.String())
+	res, err := client.newRequest(method, uri, nil)
+	if err != nil {
+		return reply.Name, err
+	}
+
+	defer res.Body.Close()
+	if err = client.decodeResp(res, &reply); err != nil {
+		return reply.Name, err
+	}
+
+	return reply.Name, nil
 }

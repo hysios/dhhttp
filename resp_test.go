@@ -221,7 +221,7 @@ func TestDecoder_searchBySelect(t *testing.T) {
 			args: args{
 				v:        strc,
 				selector: selector,
-				set: func(v reflect.Value, typ reflect.Type, ok bool) error {
+				set: func(v reflect.Value, typ reflect.Type, idx int, ok bool) error {
 					if v.CanSet() {
 						switch typ.Kind() {
 						case reflect.String:
@@ -236,6 +236,11 @@ func TestDecoder_searchBySelect(t *testing.T) {
 						case reflect.Float64:
 							f, _ := convert.Float(val)
 							v.SetFloat(f)
+						case reflect.Slice, reflect.Array:
+							e := v.Index(idx)
+							if e.Kind() == reflect.ValueOf(val).Kind() && e.CanSet() {
+								e.Set(reflect.ValueOf(val))
+							}
 						}
 					}
 					return nil
@@ -304,10 +309,146 @@ func TestDecoder_searchBySelect(t *testing.T) {
 
 	test(&struct {
 		User struct {
+			Name  string
+			Age   int
+			Admin bool
+			Box   []int
+		}
+	}{}, "user.box[3]", true, 1)
+
+	test(&struct {
+		User struct {
+			Name   string
+			Age    int
+			Admin  bool
+			Status struct {
+				Box []int
+			}
+		}
+	}{}, "user.status.box[3]", true, 1)
+}
+
+func TestDecoder_searchBySelectMultiDim(t *testing.T) {
+
+	type args struct {
+		v        interface{}
+		selector string
+		set      FieldSetter
+	}
+
+	test := func(strc interface{}, selector string, found bool, val interface{}) {
+		tt := struct {
+			name    string
+			args    args
+			wantErr bool
+		}{
+			args: args{
+				v:        strc,
+				selector: selector,
+				set: func(v reflect.Value, typ reflect.Type, idx int, ok bool) error {
+					if v.CanSet() {
+						switch typ.Kind() {
+						case reflect.String:
+							s, _ := convert.String(val)
+							v.SetString(s)
+						case reflect.Bool:
+							bo, _ := convert.Bool(val)
+							v.SetBool(bo)
+						case reflect.Int:
+							i, _ := convert.Int(val)
+							v.SetInt(int64(i))
+						case reflect.Float64:
+							f, _ := convert.Float(val)
+							v.SetFloat(f)
+						case reflect.Slice, reflect.Array:
+							e := v.Index(idx)
+							if e.Kind() == reflect.ValueOf(val).Kind() && e.CanSet() {
+								e.Set(reflect.ValueOf(val))
+							}
+						}
+					}
+					return nil
+				},
+			},
+		}
+		t.Run(tt.name, func(t *testing.T) {
+			dec := &Decoder{}
+			if err := dec.searchBySelect(reflect.ValueOf(tt.args.v), tt.args.selector, tt.args.set); (err != nil) != tt.wantErr {
+				t.Errorf("Decoder.searchBySelect() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			t.Logf("v %+v", tt.args.v)
+		})
+	}
+
+	test(&struct {
+		User struct {
 			Name   string
 			Age    int
 			Admin  bool
 			Matrix [][]string
 		}
 	}{}, "user.matrix[3][3]", true, "hello")
+}
+
+func TestDecoder_searchBySelectDeep(t *testing.T) {
+	type args struct {
+		v        interface{}
+		selector string
+		set      FieldSetter
+	}
+
+	test := func(strc interface{}, selector string, found bool, val interface{}) {
+		tt := struct {
+			name    string
+			args    args
+			wantErr bool
+		}{
+			args: args{
+				v:        strc,
+				selector: selector,
+				set: func(v reflect.Value, typ reflect.Type, idx int, ok bool) error {
+					if v.CanSet() {
+						switch typ.Kind() {
+						case reflect.String:
+							s, _ := convert.String(val)
+							v.SetString(s)
+						case reflect.Bool:
+							bo, _ := convert.Bool(val)
+							v.SetBool(bo)
+						case reflect.Int:
+							i, _ := convert.Int(val)
+							v.SetInt(int64(i))
+						case reflect.Float64:
+							f, _ := convert.Float(val)
+							v.SetFloat(f)
+						case reflect.Slice, reflect.Array:
+							e := v.Index(idx)
+							if e.Kind() == reflect.ValueOf(val).Kind() && e.CanSet() {
+								e.Set(reflect.ValueOf(val))
+							}
+						}
+					}
+					return nil
+				},
+			},
+		}
+		t.Run(tt.name, func(t *testing.T) {
+			dec := &Decoder{}
+			if err := dec.searchBySelect(reflect.ValueOf(tt.args.v), tt.args.selector, tt.args.set); (err != nil) != tt.wantErr {
+				t.Errorf("Decoder.searchBySelect() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			t.Logf("v %+v", tt.args.v)
+		})
+	}
+
+	test(&struct {
+		User struct {
+			Name   string
+			Age    int
+			Admin  bool
+			Status struct {
+				Box []int
+			}
+		}
+	}{}, "user.status.box[3]", true, 1)
 }

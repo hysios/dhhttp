@@ -44,7 +44,7 @@ func (dec *Decoder) Decode(val interface{}) error {
 	return nil
 }
 
-type FieldSetter func(val reflect.Value, typ reflect.Type, ok bool) error
+type FieldSetter func(val reflect.Value, typ reflect.Type, index int, ok bool) error
 
 func (dec *Decoder) decodeLine(s string, v reflect.Value) error {
 	ss := strings.SplitN(s, "=", 2)
@@ -54,7 +54,7 @@ func (dec *Decoder) decodeLine(s string, v reflect.Value) error {
 
 	selector, value := ss[0], ss[1]
 
-	return dec.searchBySelect(v, selector, func(val reflect.Value, typ reflect.Type, ok bool) error {
+	return dec.searchBySelect(v, selector, func(val reflect.Value, typ reflect.Type, index int, ok bool) error {
 		if !ok {
 			return nil
 		}
@@ -72,6 +72,32 @@ func (dec *Decoder) decodeLine(s string, v reflect.Value) error {
 		case reflect.String:
 			s, _ := convert.String(value)
 			val.SetString(s)
+		case reflect.Slice, reflect.Array:
+			e := val.Index(index)
+			switch e.Kind() {
+			case reflect.Int:
+				i, _ := convert.Int(value)
+				if e.CanSet() {
+					e.SetInt(int64(i))
+				}
+			case reflect.Float64:
+				f, _ := convert.Float(value)
+				if e.CanSet() {
+					e.SetFloat(f)
+				}
+			case reflect.Bool:
+				b, _ := convert.Bool(value)
+				if e.CanSet() {
+					e.SetBool(b)
+				}
+			case reflect.String:
+				s, _ := convert.String(value)
+				if e.CanSet() {
+					e.SetString(s)
+				}
+			default:
+				return errors.New("invalid type")
+			}
 		default:
 			return ErrNonimplement
 		}
@@ -116,7 +142,7 @@ func (dec *Decoder) searchBySelect(v reflect.Value, selector string, set FieldSe
 	)
 
 	for i, s := range ss {
-		t := p.Type()
+		// t := p.Type()
 		var child reflect.Value
 		if key, brackets, ok := dec.parseBrackets(s); ok {
 			if err := dec.lookupField(key, p, func(st reflect.StructField, fv reflect.Value, ok bool) error {
@@ -133,17 +159,18 @@ func (dec *Decoder) searchBySelect(v reflect.Value, selector string, set FieldSe
 
 						if j == bl {
 							if i == l {
-								set(fv, t, true)
+								set(fv, fv.Type(), idx, true)
 								return nil
 							}
+							child = fv.Index(idx)
+						} else {
+							fv = fv.Index(idx)
 						}
-
-						child = fv.Index(idx)
 					} else if key, ok := convert.String(bra); ok { // Map
 						fv.SetMapIndex(reflect.ValueOf(key), dec.adjustMap(fv.Addr(), key))
 						if j == bl {
 							if i == l {
-								set(fv, fv.Type(), true)
+								set(fv, fv.Type(), 0, true)
 								return nil
 							}
 						}
@@ -174,7 +201,7 @@ func (dec *Decoder) searchBySelect(v reflect.Value, selector string, set FieldSe
 
 					child = fv
 				} else {
-					set(fv, st.Type, true)
+					set(fv, st.Type, 0, true)
 				}
 
 				return nil

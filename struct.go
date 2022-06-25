@@ -27,6 +27,7 @@ type EventInfo struct {
 	LowerSpeedLimit    float64
 	MachineName        string
 	Mark               int
+	Object             Object
 	PTS                float64
 	PreAlarm           int
 	RedLightMargin     int
@@ -43,6 +44,7 @@ type EventInfo struct {
 	UTC                int
 	UTCMS              int
 	UpperSpeedLimit    int
+	Vehicle            Vehicle
 	VehicleLength      float64
 }
 
@@ -143,4 +145,49 @@ type CommInfo struct {
 
 type TimeReply struct {
 	Result string
+}
+
+type Status struct {
+	Action        string
+	ActionID      int
+	Focus         Focus
+	FocusMapValue int
+	Iris          Iris
+	MoveStatus    string
+	PanTiltStatus string
+	Postion       [3]float64
+	PresetID      int
+	TaskName      string
+	TrackStatus   string
+	ZoomMapValue  float64
+	ZoomStatus    string
+	ZoomValue     float64
+}
+
+type Focus struct {
+	FocusPosition float64
+	Status        string
+}
+
+type Iris struct {
+	IrisValue float64
+	Status    string
+}
+
+type PtzReply struct {
+	Status Status
+}
+
+type PresetReply struct {
+	Presets []Preset
+}
+type Preset struct {
+	Index          int
+	Name           string
+	PresetFunction string
+	Type           string
+}
+
+type NameReply struct {
+	Name string
 }

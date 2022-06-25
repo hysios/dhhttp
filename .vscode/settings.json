@@ -1,0 +1,7 @@
+{
+    "go.testEnvVars": {
+        "DHHTTP_HOST": "192.168.2.108",
+        "DHHTTP_USER": "admin",
+        "DHHTTP_PASSWORD": "admin123",
+    }
+}

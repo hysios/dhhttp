@@ -34,6 +34,7 @@ var (
 	fixed       bool
 	rebootCmd   bool
 	shutdownCmd bool
+	ptzStatus   bool
 )
 
 var (
@@ -57,6 +58,7 @@ func init() {
 
 	flag.BoolVar(&rebootCmd, "reboot", false, "重启服务")
 	flag.BoolVar(&shutdownCmd, "shutdown", false, "关机服务")
+	flag.BoolVar(&ptzStatus, "ptzstatus", false, "ptz 定位信息")
 }
 
 func main() {
@@ -116,6 +118,24 @@ func main() {
 		}
 	}
 
+	if ptzStatus {
+		go repeat(func() {
+			for {
+				time.Sleep(10 * time.Second)
+				status, err := client.GetPtzStatus(1)
+				if err != nil {
+					log.Errorf("get ptz status error %s", err)
+					continue
+				}
+
+				if status.ZoomStatus == "Idle" {
+					log.Infof("ptz status %s", pretty.Sprint(status))
+				}
+			}
+
+		})
+	}
+
 	repeat(func() {
 		err := client.SubscribeFunc(1, []string{"All"}, func(_events dhhttp.Events, image []byte) {
 			if len(_events.Events) == 0 {
@@ -136,22 +156,54 @@ func main() {
 					log.Infof("marshal events error %s", err)
 				}
 
-				saveOrUpload(&KeyGenerator{
-					DeviceNo:  deviceNo,
-					CreatedAt: t,
-					Plate:     false,
-					Prefix:    "",
-					Ext:       "json",
-				}, buf)
-
-				if len(image) > 0 {
+				if events.CountInGroup == 1 {
 					saveOrUpload(&KeyGenerator{
 						DeviceNo:  deviceNo,
 						CreatedAt: t,
 						Plate:     false,
 						Prefix:    "combine",
-						Ext:       "jpeg",
-					}, image)
+						Name:      events.GroupID,
+						Index:     events.IndexInGroup,
+						Ext:       "json",
+					}, buf)
+
+					log.Infof("image size %d", len(image))
+					if len(image) > 0 {
+						saveOrUpload(&KeyGenerator{
+							DeviceNo:  deviceNo,
+							CreatedAt: t,
+							Plate:     false,
+							Prefix:    "combine",
+							Index:     events.IndexInGroup,
+							Name:      events.GroupID,
+							Ext:       "jpeg",
+						}, image)
+					} else {
+
+					}
+				} else {
+
+					saveOrUpload(&KeyGenerator{
+						DeviceNo:  deviceNo,
+						CreatedAt: t,
+						Plate:     false,
+						Prefix:    "",
+						Name:      events.GroupID,
+						Index:     events.IndexInGroup,
+						Ext:       "json",
+					}, buf)
+
+					log.Infof("image size %d", len(image))
+					if len(image) > 0 {
+						saveOrUpload(&KeyGenerator{
+							DeviceNo:  deviceNo,
+							CreatedAt: t,
+							Plate:     false,
+							Index:     events.IndexInGroup,
+							Name:      events.GroupID,
+							Ext:       "jpeg",
+						}, image)
+					}
 				}
 			}
 		})
@@ -159,6 +211,7 @@ func main() {
 			log.Errorf("subscribe exit %v", err)
 		}
 	})
+
 }
 
 func initStorage() {
@@ -182,6 +235,8 @@ type KeyGenerator struct {
 	CreatedAt time.Time
 	Plate     bool
 	Prefix    string
+	Name      string
+	Index     int
 	Ext       string
 }
 
@@ -239,8 +294,11 @@ func saveOrUpload(key *KeyGenerator, b []byte) error {
 		// start the uploading process.
 		log.Info(uploader.Upload())
 	} else {
-		t := key.CreatedAt
-		filename := filepath.Join(output, fmt.Sprintf("%d.json", t.UnixNano()))
+		suffex := ""
+		if len(key.Prefix) > 0 {
+			suffex = "_" + key.Prefix
+		}
+		filename := filepath.Join(output, fmt.Sprintf("%s-%d%s.%s", key.Name, key.Index, suffex, key.ExtFile()))
 		log.Info(ioutil.WriteFile(filename, b, os.ModePerm))
 	}
 	return nil
