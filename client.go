@@ -13,9 +13,8 @@ import (
 	"reflect"
 	"strings"
 
-	"dev.cspdls.com/pkg/log"
-
 	"github.com/hysios/digest"
+	"github.com/hysios/log"
 	"github.com/pkg/errors"
 )
 

@@ -9,14 +9,15 @@ import (
 	"path/filepath"
 	"time"
 
-	"dev.cspdls.com/pkg/dhhttp"
-	"dev.cspdls.com/pkg/log"
-	"dev.cspdls.com/pkg/storage"
+	"cskyzn.com/pkg/server/storage"
 	"github.com/eventials/go-tus"
+	"github.com/hysios/dhhttp"
+	"github.com/hysios/log"
 	"github.com/kr/pretty"
 	"github.com/segmentio/ksuid"
 
 	_ "time/tzdata"
+<<<<<<< HEAD
 )
 
 var (
@@ -38,6 +39,28 @@ var (
 )
 
 var (
+=======
+)
+
+var (
+	addr        string
+	user        string
+	pass        string
+	output      string
+	upload      bool
+	s3Endpont   string
+	s3appkey    string
+	s3secret    string
+	s3bucket    string
+	deviceNo    string
+	test        bool
+	fixed       bool
+	rebootCmd   bool
+	shutdownCmd bool
+)
+
+var (
+>>>>>>> main
 	store storage.Storage
 )
 
@@ -58,7 +81,10 @@ func init() {
 
 	flag.BoolVar(&rebootCmd, "reboot", false, "重启服务")
 	flag.BoolVar(&shutdownCmd, "shutdown", false, "关机服务")
+<<<<<<< HEAD
 	flag.BoolVar(&ptzStatus, "ptzstatus", false, "ptz 定位信息")
+=======
+>>>>>>> main
 }
 
 func main() {
@@ -83,6 +109,7 @@ func main() {
 	if rebootCmd {
 		log.Infof("reboot %v", client.Reboot())
 		os.Exit(-1)
+<<<<<<< HEAD
 	}
 
 	if shutdownCmd {
@@ -90,6 +117,15 @@ func main() {
 		os.Exit(-1)
 	}
 
+=======
+	}
+
+	if shutdownCmd {
+		log.Infof("shutdown %v", client.Shutdown())
+		os.Exit(-1)
+	}
+
+>>>>>>> main
 	client.AudioInput()
 
 	os.MkdirAll(output, os.ModeDir|os.ModePerm)
@@ -107,6 +143,7 @@ func main() {
 				default:
 					log.Errorf("error %s", err)
 				}
+<<<<<<< HEAD
 
 			}()
 
@@ -134,6 +171,17 @@ func main() {
 			}
 
 		})
+=======
+
+			}()
+
+			fn()
+		}
+		for {
+			safeRun()
+			time.Sleep(10 * time.Second)
+		}
+>>>>>>> main
 	}
 
 	repeat(func() {
@@ -156,6 +204,7 @@ func main() {
 					log.Infof("marshal events error %s", err)
 				}
 
+<<<<<<< HEAD
 				if events.CountInGroup == 1 {
 					saveOrUpload(&KeyGenerator{
 						DeviceNo:  deviceNo,
@@ -183,10 +232,22 @@ func main() {
 					}
 				} else {
 
+=======
+				saveOrUpload(&KeyGenerator{
+					DeviceNo:  deviceNo,
+					CreatedAt: t,
+					Plate:     false,
+					Prefix:    "",
+					Ext:       "json",
+				}, buf)
+
+				if len(image) > 0 {
+>>>>>>> main
 					saveOrUpload(&KeyGenerator{
 						DeviceNo:  deviceNo,
 						CreatedAt: t,
 						Plate:     false,
+<<<<<<< HEAD
 						Prefix:    "",
 						Name:      events.GroupID,
 						Index:     events.IndexInGroup,
@@ -204,6 +265,11 @@ func main() {
 							Ext:       "jpeg",
 						}, image)
 					}
+=======
+						Prefix:    "combine",
+						Ext:       "jpeg",
+					}, image)
+>>>>>>> main
 				}
 			}
 		})
@@ -211,7 +277,10 @@ func main() {
 			log.Errorf("subscribe exit %v", err)
 		}
 	})
+<<<<<<< HEAD
 
+=======
+>>>>>>> main
 }
 
 func initStorage() {
@@ -219,6 +288,7 @@ func initStorage() {
 	store, err = storage.NewMinioV2(s3appkey, s3secret, s3bucket, storage.MinioEndpoint(s3Endpont))
 	if err != nil {
 		log.Fatalf("打开 minio s3 失败 %s", err)
+<<<<<<< HEAD
 	}
 }
 
@@ -237,6 +307,93 @@ type KeyGenerator struct {
 	Prefix    string
 	Name      string
 	Index     int
+	Ext       string
+}
+
+func (key *KeyGenerator) String() string {
+	return fmt.Sprintf("%s/%4d/%02d/%02d/%s-%s.%s", key.DeviceNo,
+		key.CreatedAt.Year(),
+		key.CreatedAt.Month(),
+		key.CreatedAt.Day(),
+		key.Prefix,
+		key.UUID(),
+		key.ExtFile(),
+	)
+}
+
+func (key *KeyGenerator) UUID() string {
+	return ksuid.New().String()
+}
+
+func (key *KeyGenerator) ExtFile() string {
+	if len(key.Ext) > 0 {
+		return key.Ext
+=======
+>>>>>>> main
+	}
+
+	return "jpg"
+}
+
+func (key *KeyGenerator) PlateOrPrefix() string {
+	if key.Plate {
+		return "plate"
+	}
+
+	return key.Prefix
+}
+
+func saveOrUpload(key *KeyGenerator, b []byte) error {
+	if upload {
+		log.Infof("upload to %s", key.String())
+		log.Infof("result %v", key.String())
+
+		// create the tus client.
+		client, err := tus.NewClient("http://8.134.49.62:1080/files", nil)
+		if err != nil {
+			return fmt.Errorf("new client error %s", err)
+		}
+
+		// create an upload from a file.
+		upload := tus.NewUploadFromBytes(b)
+		upload.Metadata["filename"] = key.String()
+
+		// create the uploader.
+		uploader, err := client.CreateUpload(upload)
+		if err != nil {
+			return fmt.Errorf("create upload error %s", err)
+		}
+		// start the uploading process.
+		log.Info(uploader.Upload())
+	} else {
+		suffex := ""
+		if len(key.Prefix) > 0 {
+			suffex = "_" + key.Prefix
+		}
+		filename := filepath.Join(output, fmt.Sprintf("%s-%d%s.%s", key.Name, key.Index, suffex, key.ExtFile()))
+		log.Info(ioutil.WriteFile(filename, b, os.ModePerm))
+	}
+	return nil
+}
+
+func doTest() {
+	initStorage()
+	log.Infof("test result %v", store.Put("test", []byte("this is test content")))
+}
+
+func initTimefix() {
+	// loc, _ := time.LoadLocation("Asia/Shanghai")
+	loc := time.FixedZone("UTC-8", -28800)
+	time.Local = loc
+	time.UTC = loc
+
+}
+
+type KeyGenerator struct {
+	DeviceNo  string
+	CreatedAt time.Time
+	Plate     bool
+	Prefix    string
 	Ext       string
 }
 
@@ -294,11 +451,8 @@ func saveOrUpload(key *KeyGenerator, b []byte) error {
 		// start the uploading process.
 		log.Info(uploader.Upload())
 	} else {
-		suffex := ""
-		if len(key.Prefix) > 0 {
-			suffex = "_" + key.Prefix
-		}
-		filename := filepath.Join(output, fmt.Sprintf("%s-%d%s.%s", key.Name, key.Index, suffex, key.ExtFile()))
+		t := key.CreatedAt
+		filename := filepath.Join(output, fmt.Sprintf("%d.json", t.UnixNano()))
 		log.Info(ioutil.WriteFile(filename, b, os.ModePerm))
 	}
 	return nil
